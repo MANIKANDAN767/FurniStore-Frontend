@@ -1,79 +1,155 @@
-import React, { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Icon } from './Icons.jsx'
-import { useStore } from '../state/store.jsx'
-
-const links = [
-  { to: '/shop', label: 'Shop' },
-  { to: '/shop?category=sofas', label: 'Sofas' },
-  { to: '/shop?category=chairs', label: 'Chairs' },
-  { to: '/shop?category=tables', label: 'Tables' },
-]
+import React from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useStore } from "../state/store.jsx";
 
 export default function Header() {
-  const [open, setOpen] = useState(false)
-  const [q, setQ] = useState('')
-  const navigate = useNavigate()
-  const { cartCount, wishlist, user } = useStore()
+  const { cart, user, logout } = useStore();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const submitSearch = (e) => {
-    e.preventDefault()
-    navigate(q ? `/shop?q=${encodeURIComponent(q)}` : '/shop')
-  }
+  // ✅ SAFE CART COUNT: Prevents "Cannot read properties of null" error
+  const cartItemCount =
+    cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
-    <header className="site-header">
-      <div className="wrap header-row">
-        <button className="hamburger icon-btn" onClick={() => setOpen((v) => !v)} aria-label="Menu">
-          {open ? <Icon.X /> : <Icon.Menu />}
-        </button>
+    <header
+      style={{
+        background: "#fff",
+        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+        padding: "15px 0",
+        position: "sticky",
+        top: 0,
+        zIndex: 1000,
+      }}
+    >
+      <div
+        className="container"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "0 20px",
+        }}
+      >
+        {/* Logo */}
+        <Link
+          to="/"
+          style={{
+            fontSize: "1.5rem",
+            fontWeight: "bold",
+            color: "#333",
+            textDecoration: "none",
+          }}
+        >
+          FurniStore
+        </Link>
 
-        <Link to="/" className="logo">Furni<span>Store</span></Link>
+        {/* Navigation Links */}
+        <nav style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+          <Link
+            to="/shop"
+            style={{
+              textDecoration: "none",
+              color: location.pathname === "/shop" ? "#007bff" : "#333",
+            }}
+          >
+            Shop
+          </Link>
 
-        <nav className="main-nav">
-          {links.map((l) => (
-            <NavLink key={l.label} to={l.to} className={({ isActive }) => (isActive ? 'active' : '')}>
-              {l.label}
-            </NavLink>
-          ))}
+          {/* Cart Icon with Safe Badge */}
+          <Link
+            to="/cart"
+            style={{
+              textDecoration: "none",
+              color: "#333",
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            🛒 Cart
+            {cartItemCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-8px",
+                  right: "-12px",
+                  background: "#ff4444",
+                  color: "white",
+                  borderRadius: "50%",
+                  padding: "2px 6px",
+                  fontSize: "0.75rem",
+                  fontWeight: "bold",
+                }}
+              >
+                {cartItemCount}
+              </span>
+            )}
+          </Link>
+
+          {/* User Authentication State */}
+          {user ? (
+            <>
+              <Link
+                to="/account"
+                style={{ textDecoration: "none", color: "#333" }}
+              >
+                👤 {user.name || user.email}
+              </Link>
+
+              {/* Admin Button (Only shows if user has ADMIN role) */}
+              {user.role === "ADMIN" && (
+                <Link
+                  to="/admin"
+                  style={{
+                    textDecoration: "none",
+                    color: "#d9534f",
+                    fontWeight: "bold",
+                  }}
+                >
+                  🛡️ Admin
+                </Link>
+              )}
+
+              <button
+                onClick={handleLogout}
+                style={{
+                  background: "none",
+                  border: "1px solid #ccc",
+                  padding: "5px 15px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  color: "#333",
+                }}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                style={{ textDecoration: "none", color: "#333" }}
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                style={{ textDecoration: "none", color: "#007bff" }}
+              >
+                Register
+              </Link>
+            </>
+          )}
         </nav>
-
-        <form className="search-box" onSubmit={submitSearch}>
-          <Icon.Search />
-          <input placeholder="Search furniture…" value={q} onChange={(e) => setQ(e.target.value)} />
-        </form>
-
-        <div className="header-actions">
-          <Link className="icon-btn" to="/wishlist" aria-label="Wishlist">
-            <Icon.Heart />
-            {wishlist.length > 0 && <span className="badge">{wishlist.length}</span>}
-          </Link>
-          <Link className="icon-btn" to="/cart" aria-label="Cart">
-            <Icon.Bag />
-            {cartCount > 0 && <span className="badge">{cartCount}</span>}
-          </Link>
-          <Link className="icon-btn" to={user ? '/account' : '/login'} aria-label="Account">
-            <Icon.User />
-          </Link>
-        </div>
       </div>
-
-      {open && (
-        <div className="wrap mobile-nav">
-          <form onSubmit={submitSearch} style={{ marginBottom: 10 }}>
-            <div className="search-box" style={{ maxWidth: 'none' }}>
-              <Icon.Search />
-              <input placeholder="Search furniture…" value={q} onChange={(e) => setQ(e.target.value)} />
-            </div>
-          </form>
-          {links.map((l) => (
-            <Link key={l.label} to={l.to} onClick={() => setOpen(false)}>{l.label}</Link>
-          ))}
-          <Link to="/wishlist" onClick={() => setOpen(false)}>Wishlist</Link>
-          <Link to="/cart" onClick={() => setOpen(false)}>Cart</Link>
-          <Link to={user ? '/account' : '/login'} onClick={() => setOpen(false)}>{user ? 'Account' : 'Sign in'}</Link>
-        </div>
-      )}
     </header>
-  )
+  );
 }

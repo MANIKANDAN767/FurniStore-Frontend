@@ -1,59 +1,115 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useStore } from '../state/store.jsx'
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { loginUser } from "../services/api";
+import { useStore } from "../state/store.jsx";
 
 export default function Login() {
-  const { login } = useStore()
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const submit = (e) => {
-    e.preventDefault()
-    if (!email || !password) { setError('Enter your email and password to continue.'); return }
-    login(email)
-    navigate('/account')
-  }
+  const navigate = useNavigate();
+  const { setToast, loadUserProfile } = useStore();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const data = await loginUser({ email, password });
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+
+      // ✅ FIX: Load the user profile into the app state immediately after login
+      await loadUserProfile();
+
+      setToast("Logged in successfully!");
+      navigate("/");
+    } catch (err) {
+      setError(err.message || "Invalid email or password");
+      setToast("Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="auth-shell fade-in">
-      <div className="auth-visual">
-        <img src="https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1400&auto=format&fit=crop" alt="Living room interior" />
-        <div className="auth-visual-copy">
-          <span className="eyebrow" style={{ color: 'var(--brass-light)' }}>Welcome back</span>
-          <p className="display" style={{ marginTop: 12 }}>Your orders, saved pieces, and delivery windows — all in one place.</p>
+    <div
+      className="container"
+      style={{ maxWidth: "400px", margin: "50px auto", padding: "20px" }}
+    >
+      <h2 style={{ textAlign: "center", marginBottom: "20px" }}>Login</h2>
+
+      {error && (
+        <div
+          style={{
+            background: "#ffebee",
+            color: "#c62828",
+            padding: "10px",
+            borderRadius: "4px",
+            marginBottom: "15px",
+            textAlign: "center",
+          }}
+        >
+          {error}
         </div>
-      </div>
-      <div className="auth-form-wrap">
-        <form className="auth-form" onSubmit={submit}>
-          <h1 className="display">Sign in</h1>
-          <span className="muted">New here? <Link to="/register" style={{ color: 'var(--forest)', fontWeight: 600 }}>Create an account</Link></span>
+      )}
 
-          {error && <div style={{ background: 'rgba(164,64,42,0.1)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 2, fontSize: 13, marginBottom: 16 }}>{error}</div>}
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: "flex", flexDirection: "column", gap: "15px" }}
+      >
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          placeholder="customer@test.com"
+          style={{
+            padding: "10px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+          }}
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          placeholder="Customer123!"
+          style={{
+            padding: "10px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+          }}
+        />
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: "12px",
+            background: loading ? "#ccc" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: loading ? "not-allowed" : "pointer",
+            fontWeight: "bold",
+          }}
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
+      </form>
 
-          <div className="field">
-            <label>Email address</label>
-            <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>Password</label>
-            <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          <div className="field-row-inline">
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}><input type="checkbox" /> Remember me</label>
-            <a href="#">Forgot password?</a>
-          </div>
-          <button className="btn btn-primary btn-block" type="submit">Sign in</button>
-
-          <div className="divider-or">or continue with</div>
-          <div className="social-row">
-            <button type="button" className="social-btn">Google</button>
-            <button type="button" className="social-btn">Apple</button>
-          </div>
-          <p className="auth-switch muted">Don't have an account? <Link to="/register" style={{ color: 'var(--forest)', fontWeight: 600 }}>Register</Link></p>
-        </form>
-      </div>
+      <p style={{ textAlign: "center", marginTop: "20px" }}>
+        Don't have an account?{" "}
+        <Link to="/register" style={{ color: "#007bff" }}>
+          Register
+        </Link>
+      </p>
     </div>
-  )
+  );
 }

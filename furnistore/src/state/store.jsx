@@ -1,151 +1,238 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { fetchProducts, fetchCategories } from "../services/api";
+import { create } from "zustand";
+  import {
+    fetchProducts as fetchProductsApi, // ✅ FIX: Rename the import to avoid collision
+    fetchProductById as fetchProductByIdApi,
+    fetchCategories as fetchCategoriesApi,
+    fetchUserCart,
+    addToCartApi,
+    updateCartQuantityApi,
+    removeFromCartApi,
+    clearCartApi,
+    fetchWishlist,
+    addToWishlist as addToWishlistApi,
+    removeFromWishlist as removeFromWishlistApi,
+    fetchUserOrders,
+    placeOrder as placeOrderApi,
+    fetchAddresses,
+    createAddress as createAddressApi,
+    fetchUserProfile,
+    updateUserProfile as updateUserProfileApi,
+  } from "../services/api";
 
-const StoreContext = createContext();
+export const useStore = create((set, get) => ({
+  // State
+  products: [],
+  categories: [],
+  cart: null,
+  wishlist: [],
+  orders: [],
+  addresses: [],
+  user: null,
+  toast: null,
+  loading: false,
 
-export const StoreProvider = ({ children }) => {
-  // --- Data State ---
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // Actions
+  setToast: (message) => {
+    set({ toast: message });
+    setTimeout(() => set({ toast: null }), 3000);
+  },
 
-  // --- Cart & Wishlist State (Persisted in localStorage) ---
-  const [cart, setCart] = useState(() => {
-    const saved = localStorage.getItem("cart");
-    return saved ? JSON.parse(saved) : [];
-  });
+  setLoading: (loading) => set({ loading }),
 
-  const [wishlist, setWishlist] = useState(() => {
-    const saved = localStorage.getItem("wishlist");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // ✅ FIX: Use the renamed import here!
+  fetchProducts: async () => {
+    try {
+      const products = await fetchProductsApi(); // Calls the API, not itself!
+      set({ products });
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
 
-  // --- Auth State (Simulated for now, we will connect to your customUserDetailsService next) ---
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("user");
-    return saved ? JSON.parse(saved) : null;
-  });
+  // ... (keep the rest of your store.jsx exactly as it was) ...
 
-  // --- Fetch Real Data from Spring Boot on Initial Load ---
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [productsData, categoriesData] = await Promise.all([
-          fetchProducts(),
-          fetchCategories(),
-        ]);
-        setProducts(productsData);
-        setCategories(categoriesData);
-      } catch (err) {
-        console.error("Error loading data from backend:", err);
-        setError(
-          "Failed to load products. Is the backend running on port 8080?",
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  // Fetch Product by ID
+  fetchProductById: async (id) => {
+    try {
+      return await fetchProductByIdApi(id);
+    } catch (error) {
+      get().setToast(error.message);
+      return null;
+    }
+  },
 
-  // --- Cart Actions ---
-  const addToCart = (product, quantity = 1) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      let updatedCart;
-      if (existing) {
-        updatedCart = prev.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item,
-        );
-      } else {
-        updatedCart = [...prev, { ...product, quantity }];
-      }
-      localStorage.setItem("cart", JSON.stringify(updatedCart));
-      return updatedCart;
-    });
-  };
+  // Fetch Categories
+  fetchCategories: async () => {
+    try {
+      const categories = await fetchCategoriesApi();
+      set({ categories });
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
 
-  const removeFromCart = (productId) => {
-    setCart((prev) => {
-      const updatedCart = prev.filter((item) => item.id !== productId);
-      localStorage.setItem("cart", JSON.stringify(updatedCart));
-      return updatedCart;
-    });
-  };
+  // ✅ Fetch Cart (Updated to properly save cart state)
+  loadCart: async () => {
+    try {
+      const cart = await fetchUserCart();
+      set({ cart });
+    } catch (error) {
+      console.error("Failed to load cart:", error);
+      set({ cart: { items: [] } });
+    }
+  },
 
-  const updateCartQuantity = (productId, quantity) => {
-    if (quantity < 1) return removeFromCart(productId);
-    setCart((prev) => {
-      const updatedCart = prev.map((item) =>
-        item.id === productId ? { ...item, quantity } : item,
-      );
-      localStorage.setItem("cart", JSON.stringify(updatedCart));
-      return updatedCart;
-    });
-  };
+  // ✅ Add to Cart (Updated to save the returned cart)
+  addToCart: async (productId, quantity) => {
+    try {
+      const updatedCart = await addToCartApi(productId, quantity);
+      set({ cart: updatedCart }); // ✅ This saves the updated cart!
+      get().setToast("Added to cart!");
+      get().loadCart(); // Refresh cart to be safe
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
 
-  // --- Wishlist Actions ---
-  const addToWishlist = (product) => {
-    setWishlist((prev) => {
-      if (prev.find((item) => item.id === product.id)) return prev;
-      const updated = [...prev, product];
-      localStorage.setItem("wishlist", JSON.stringify(updated));
-      return updated;
-    });
-  };
+  // ✅ Update Cart Quantity (Updated to save the returned cart)
+  updateCartQuantity: async (cartItemId, quantity) => {
+    if (quantity < 1) return;
+    try {
+      const updatedCart = await updateCartQuantityApi(cartItemId, quantity);
+      set({ cart: updatedCart }); // ✅ This saves the updated cart!
+      get().setToast("Cart updated!");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
 
-  const removeFromWishlist = (productId) => {
-    setWishlist((prev) => {
-      const updated = prev.filter((item) => item.id !== productId);
-      localStorage.setItem("wishlist", JSON.stringify(updated));
-      return updated;
-    });
-  };
+  // ✅ Remove from Cart (Updated to save the returned cart)
+  removeFromCart: async (cartItemId) => {
+    try {
+      const updatedCart = await removeFromCartApi(cartItemId);
+      set({ cart: updatedCart }); // ✅ This saves the updated cart!
+      get().setToast("Item removed from cart");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
 
-  // --- Auth Actions ---
-  const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem("user", JSON.stringify(userData));
-  };
+  // Clear Cart
+  clearCart: async () => {
+    try {
+      await clearCartApi();
+      set({ cart: { items: [] } });
+      get().setToast("Cart cleared!");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
 
-  const logout = () => {
-    setUser(null);
+  // Fetch Wishlist
+  loadWishlist: async () => {
+    try {
+      const wishlist = await fetchWishlist();
+      set({ wishlist });
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Add to Wishlist
+  addToWishlist: async (productId) => {
+    try {
+      await addToWishlistApi(productId);
+      get().loadWishlist();
+      get().setToast("Added to wishlist!");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Remove from Wishlist
+  removeFromWishlist: async (productId) => {
+    try {
+      await removeFromWishlistApi(productId);
+      set((state) => ({
+        wishlist: state.wishlist.filter((item) => item.id !== productId),
+      }));
+      get().setToast("Removed from wishlist");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Fetch Orders
+  loadOrders: async () => {
+    try {
+      const orders = await fetchUserOrders();
+      set({ orders });
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Place Order
+  placeOrder: async (orderData) => {
+    try {
+      const order = await placeOrderApi(orderData);
+      get().loadOrders();
+      get().clearCart();
+      get().setToast("Order placed successfully!");
+      return order;
+    } catch (error) {
+      get().setToast(error.message);
+      throw error;
+    }
+  },
+
+  // Fetch Addresses
+  loadAddresses: async () => {
+    try {
+      const addresses = await fetchAddresses();
+      set({ addresses });
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Create Address
+  createAddress: async (addressData) => {
+    try {
+      await createAddressApi(addressData);
+      get().loadAddresses();
+      get().setToast("Address added successfully!");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Fetch User Profile
+  loadUserProfile: async () => {
+    try {
+      const user = await fetchUserProfile();
+      set({ user });
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Update User Profile
+  updateUserProfile: async (userData) => {
+    try {
+      const updatedUser = await updateUserProfileApi(userData);
+      set({ user: updatedUser });
+      get().setToast("Profile updated successfully!");
+    } catch (error) {
+      get().setToast(error.message);
+    }
+  },
+
+  // Logout
+  logout: () => {
+    localStorage.removeItem("token");
     localStorage.removeItem("user");
-  };
-
-  return (
-    <StoreContext.Provider
-      value={{
-        products,
-        categories,
-        loading,
-        error,
-        cart,
-        wishlist,
-        user,
-        addToCart,
-        removeFromCart,
-        updateCartQuantity,
-        addToWishlist,
-        removeFromWishlist,
-        login,
-        logout,
-      }}
-    >
-      {children}
-    </StoreContext.Provider>
-  );
-};
-
-export const useStore = () => {
-  const context = useContext(StoreContext);
-  if (!context) {
-    throw new Error("useStore must be used within a StoreProvider");
-  }
-  return context;
-};
+    set({ user: null, cart: { items: [] }, wishlist: [], orders: [] });
+    get().setToast("Logged out successfully!");
+  },
+}));

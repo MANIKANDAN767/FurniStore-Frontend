@@ -1,69 +1,192 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Icon } from '../components/Icons.jsx'
-import { useStore } from '../state/store.jsx'
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useStore } from "../state/store.jsx";
 
 export default function Cart() {
-  const { cartLines, subtotal, removeFromCart, setQty } = useStore()
-  const [promo, setPromo] = useState('')
-  const shipping = subtotal > 1500 || subtotal === 0 ? 0 : 79
-  const tax = Math.round(subtotal * 0.08)
+  const { cart, removeFromCart, updateCartQuantity, clearCart } = useStore();
+  const navigate = useNavigate();
 
-  if (cartLines.length === 0) {
+  // 1. Handle Empty Cart
+  if (!cart || !cart.items || cart.items.length === 0) {
     return (
-      <div className="wrap empty-state">
-        <span className="eyebrow">Your cart</span>
-        <h1 className="display" style={{ fontSize: 30, margin: '14px 0' }}>It's empty in here</h1>
-        <p className="muted" style={{ marginBottom: 24 }}>Pieces you add will show up here.</p>
-        <Link to="/shop" className="btn btn-primary">Browse the collection</Link>
+      <div
+        className="container"
+        style={{ textAlign: "center", padding: "50px" }}
+      >
+        <h2>Your cart is empty</h2>
+        <button
+          onClick={() => navigate("/shop")}
+          style={{
+            marginTop: "20px",
+            padding: "10px 20px",
+            background: "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Continue Shopping
+        </button>
       </div>
-    )
+    );
   }
 
+  // 2. Calculate Total Safely
+  const total = cart.items.reduce(
+    (sum, item) => sum + (item.product?.price || 0) * item.quantity,
+    0,
+  );
+
   return (
-    <div className="wrap fade-in">
-      <div className="breadcrumb"><Link to="/">Home</Link> / Cart</div>
-      <h1 className="display" style={{ fontSize: 32, margin: '18px 0 4px' }}>Your Cart</h1>
-      <span className="muted" style={{ fontSize: 13.5 }}>{cartLines.length} item{cartLines.length !== 1 ? 's' : ''}</span>
+    <div
+      className="container"
+      style={{ padding: "20px", maxWidth: "1000px", margin: "0 auto" }}
+    >
+      <h2>Shopping Cart</h2>
 
-      <div className="cart-layout">
-        <div>
-          {cartLines.map(({ product, qty }) => (
-            <div key={product.id} className="cart-item">
-              <img src={product.images[0]} alt={product.name} />
-              <div>
-                <div className="cart-item-name">{product.name}</div>
-                <span className="muted" style={{ fontSize: 12.5 }}>{product.material} · {product.color}</span>
-                <div className="qty-row" style={{ marginTop: 12 }}>
-                  <button onClick={() => setQty(product.id, qty - 1)}><Icon.Minus /></button>
-                  <span>{qty}</span>
-                  <button onClick={() => setQty(product.id, qty + 1)}><Icon.Plus /></button>
-                </div>
-              </div>
-              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 14 }}>
-                <span className="mono">${(product.price * qty).toLocaleString()}</span>
-                <button className="icon-mini-btn" onClick={() => removeFromCart(product.id)} aria-label="Remove">
-                  <Icon.Trash />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* 3. Map Through Cart Items */}
+      {cart.items.map((item) => (
+        <div
+          key={item.id}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            borderBottom: "1px solid #eee",
+            padding: "20px 0",
+            gap: "20px",
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Product Image */}
+          <img
+            src={item.product?.images?.[0] || "https://via.placeholder.com/100"}
+            alt={item.product?.name || "Product"}
+            style={{
+              width: "100px",
+              height: "100px",
+              objectFit: "cover",
+              borderRadius: "8px",
+            }}
+          />
 
-        <div className="summary-card">
-          <h3 className="display" style={{ fontSize: 19, marginBottom: 6 }}>Order Summary</h3>
-          <div className="promo-row">
-            <input placeholder="Promo code" value={promo} onChange={(e) => setPromo(e.target.value)} />
-            <button className="btn btn-outline btn-sm">Apply</button>
+          {/* Product Details */}
+          <div style={{ flex: 1, minWidth: "200px" }}>
+            <h3 style={{ margin: "0 0 5px 0", fontSize: "1.1rem" }}>
+              {item.product?.name || "Unknown Product"}
+            </h3>
+            <p style={{ margin: 0, color: "#666" }}>
+              ₹{(item.product?.price || 0).toFixed(2)}
+            </p>
           </div>
-          <div className="summary-row"><span className="muted">Subtotal</span><span>${subtotal.toLocaleString()}</span></div>
-          <div className="summary-row"><span className="muted">Shipping</span><span>{shipping === 0 ? 'Free' : `$${shipping}`}</span></div>
-          <div className="summary-row"><span className="muted">Estimated tax</span><span>${tax.toLocaleString()}</span></div>
-          <div className="summary-row total"><span>Total</span><span>${(subtotal + shipping + tax).toLocaleString()}</span></div>
-          <button className="btn btn-primary btn-block" style={{ marginTop: 10 }}>Checkout</button>
-          <Link to="/shop" className="btn btn-ghost btn-block" style={{ marginTop: 6 }}>Continue shopping</Link>
+
+          {/* Quantity Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+              disabled={item.quantity <= 1}
+              style={{
+                padding: "5px 12px",
+                cursor: item.quantity <= 1 ? "not-allowed" : "pointer",
+                background: "#f0f0f0",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+              }}
+            >
+              -
+            </button>
+            <span style={{ minWidth: "20px", textAlign: "center" }}>
+              {item.quantity}
+            </span>
+            <button
+              onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+              style={{
+                padding: "5px 12px",
+                cursor: "pointer",
+                background: "#f0f0f0",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+              }}
+            >
+              +
+            </button>
+          </div>
+
+          {/* Item Total */}
+          <div
+            style={{
+              fontWeight: "bold",
+              minWidth: "100px",
+              textAlign: "right",
+            }}
+          >
+            ₹{((item.product?.price || 0) * item.quantity).toFixed(2)}
+          </div>
+
+          {/* Remove Button */}
+          <button
+            onClick={() => removeFromCart(item.id)}
+            style={{
+              background: "#ff4444",
+              color: "white",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+
+      {/* 4. Cart Summary & Checkout Button */}
+      <div
+        style={{
+          marginTop: "30px",
+          textAlign: "right",
+          borderTop: "2px solid #333",
+          paddingTop: "20px",
+        }}
+      >
+        <h3>Total: ₹{total.toFixed(2)}</h3>
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            gap: "15px",
+            justifyContent: "flex-end",
+          }}
+        >
+          <button
+            onClick={clearCart}
+            style={{
+              padding: "10px 20px",
+              background: "#666",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Clear Cart
+          </button>
+          <button
+            onClick={() => navigate("/checkout")}
+            style={{
+              padding: "10px 20px",
+              background: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            Proceed to Checkout
+          </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
