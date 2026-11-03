@@ -5,10 +5,11 @@ const API_BASE_URL = "http://localhost:8080/api";
 // ==========================================
 export const getAuthHeaders = () => {
   const token = localStorage.getItem("token");
-  return {
-    "Content-Type": "application/json",
-    Authorization: token ? `Bearer ${token}` : "",
-  };
+  const headers = { "Content-Type": "application/json" };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 };
 
 // ==========================================
@@ -108,7 +109,11 @@ export const fetchUserProfile = async () => {
   const response = await fetch(`${API_BASE_URL}/users/profile`, {
     headers: getAuthHeaders(),
   });
-  if (!response.ok) throw new Error("Failed to fetch profile");
+  if (!response.ok) {
+    const err = new Error("Failed to fetch profile");
+    err.status = response.status;
+    throw err;
+  }
   return response.json();
 };
 
@@ -130,7 +135,11 @@ export const fetchUserCart = async () => {
   const response = await fetch(`${API_BASE_URL}/cart`, {
     headers: getAuthHeaders(),
   });
-  if (!response.ok) throw new Error("Failed to fetch cart");
+  if (!response.ok) {
+    const err = new Error("Failed to fetch cart");
+    err.status = response.status;
+    throw err;
+  }
   return response.json();
 };
 

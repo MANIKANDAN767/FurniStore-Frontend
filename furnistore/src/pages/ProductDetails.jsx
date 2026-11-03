@@ -30,7 +30,8 @@ export default function ProductDetails() {
         setColor(data.color || "Oat");
 
         // Fetch related products
-        const allProducts = await fetchProducts({ category: data.category });
+        const categoryFilter = typeof data.category === 'object' ? data.category.name : data.category;
+        const allProducts = await fetchProducts({ category: categoryFilter });
         const relatedProducts = allProducts
           .filter((p) => p.id !== data.id)
           .slice(0, 4);
@@ -86,9 +87,14 @@ export default function ProductDetails() {
     <div className="wrap fade-in">
       <div className="breadcrumb">
         <Link to="/">Home</Link> /{" "}
-        <Link to={`/shop?category=${product.category}`}>
-          {product.category}
-        </Link>{" "}
+        {(() => {
+          const catName = typeof product.category === 'object' ? product.category.name : product.category;
+          return (
+            <Link to={`/shop?category=${catName}`}>
+              {catName}
+            </Link>
+          );
+        })()}{" "}
         / {product.name}
       </div>
 

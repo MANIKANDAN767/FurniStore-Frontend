@@ -72,15 +72,19 @@ export const useStore = create((set, get) => ({
   },
 
   // ✅ Fetch Cart (Updated to properly save cart state)
-  loadCart: async () => {
-    try {
-      const cart = await fetchUserCart();
-      set({ cart });
-    } catch (error) {
-      console.error("Failed to load cart:", error);
-      set({ cart: { items: [] } });
-    }
-  },
+   loadCart: async () => {
+     try {
+       const cart = await fetchUserCart();
+       set({ cart });
+     } catch (error) {
+       console.error("Failed to load cart:", error);
+       if (error.status === 401 || error.status === 403) {
+         localStorage.removeItem("token");
+         window.location.href = "/login";
+       }
+       set({ cart: { items: [] } });
+     }
+   },
 
   // ✅ Add to Cart (Updated to save the returned cart)
   addToCart: async (productId, quantity) => {
@@ -208,14 +212,18 @@ export const useStore = create((set, get) => ({
   },
 
   // Fetch User Profile
-  loadUserProfile: async () => {
-    try {
-      const user = await fetchUserProfile();
-      set({ user });
-    } catch (error) {
-      get().setToast(error.message);
-    }
-  },
+   loadUserProfile: async () => {
+     try {
+       const user = await fetchUserProfile();
+       set({ user });
+     } catch (error) {
+       get().setToast(error.message);
+       if (error.status === 401 || error.status === 403) {
+         localStorage.removeItem("token");
+         window.location.href = "/login";
+       }
+     }
+   },
 
   // Update User Profile
   updateUserProfile: async (userData) => {
